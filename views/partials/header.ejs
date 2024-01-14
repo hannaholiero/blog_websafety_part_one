@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HANNAHS BLOGG - webbsäkerhet 2024</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.2/css/all.css">
+  <link rel="stylesheet" href="/styles/content.css">
+  <script src="https://kit.fontawesome.com/1ec3f09d60.js" crossorigin="anonymous"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+  <header>
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="/">
+            <% if (userIsLoggedIn) { %>
+              <a class="navbar-brand" href="/">
+                <%= loggedInUsername %>'s blogg
+              </a>
+              <% } else { %>
+                <a class="navbar-brand" href="/">
+                  Bloggportalen Majonäs
+                </a>
+                <% } %>
+
+        </div>
+
+        <!-- Användarinformation om man är inloggad -->
+        <ul class="nav navbar-nav">
+          <li class="nav-item">
+            <% if (userIsLoggedIn) { %>
+              <a class="nav-link" href="/newpost"><i class="far fa-clone"></i>Skriv inlägg</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/logout"><i class="far fa-calendar-alt"></i>Logga ut</a>
+
+
+            <% } else { %>
+              <!-- Användarinformation om man INTE är inloggad -->
+              <a class="nav-link" href="/register"><i class="fa-regular fa-address-card"></i>Skapa konto</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/login"><i class="fa-solid fa-right-to-bracket"></i>Logga in</a>
+
+            <% } %>
+          </li>
+        </ul>
+      </div>
+
+    </nav>
+  </header>
+  <hr class="head">

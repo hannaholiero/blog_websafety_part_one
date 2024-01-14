@@ -1,0 +1,67 @@
+<%- include('partials/header', { userIsLoggedIn: userIsLoggedIn, loggedInUsername: loggedInUsername }) %>
+
+  <div class="container bootstrap snippets bootdey">
+    <section class="articles">
+      <ul class="article_ul">
+        <h1>Senaste inläggen:</h1>
+        <br>
+      </ul>
+      <ul class="article_ul">
+        <% if (posts && posts.length> 0) { %>
+          <% for (const post of posts) { %>
+            <div class="postwrapper">
+              <div class="flex-grid">
+                <h2>
+                  <%= post.title %>
+                </h2>
+                <br>
+                <p>
+
+                  <%= post.content %>
+                </p>
+              </div>
+
+              <div class="flex-under">
+                <div class="tabort">
+                  <% if (post.createdBy===loggedInUsername) { %>
+                    <button class="tabort-btn" onclick="confirmDelete('<%= post._id %>')">Ta bort inlägg</button>
+                    <form id="deleteForm_<%= post._id %>" action="/newpost/<%= post._id %>" method="POST"
+                      style="display: none;">
+                      <button type="submit">Bekräfta borttagning</button>
+                    </form>
+                    <% } %>
+                </div>
+
+                <div class="post-creator">
+                  <i>
+                    <p>Skapad av: <%= post.createdBy %>
+                    </p>
+                  </i>
+                </div>
+
+                <div class="post-date">
+                  <p>
+                    <%= post.createdAt.toDateString() %>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <script>
+              function confirmDelete(postId) {
+                var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
+                if (confirmation) {
+                  document.getElementById("deleteForm_" + postId).submit();
+                }
+              }
+            </script>
+            <hr>
+            <% } %>
+              <% } else { %>
+                <p>Inga inlägg att visa.</p>
+                <% } %>
+      </ul>
+    </section>
+  </div>
+  </body>
+  <%- include('partials/footer') %>
