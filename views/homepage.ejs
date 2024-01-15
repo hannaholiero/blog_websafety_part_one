@@ -41,7 +41,9 @@
 
                 <div class="post-date">
                   <p>
-                    <%= post.createdAt.toDateString() %>
+                    <%= post.createdAt.toLocaleString('sv-SE', { hour: 'numeric' , minute: 'numeric' , year: 'numeric' ,
+                      month: '2-digit' , day: '2-digit' }) %>
+
                   </p>
                 </div>
               </div>
