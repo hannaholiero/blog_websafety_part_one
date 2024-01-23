@@ -176,6 +176,9 @@ app.get('/newpost', async (req, res) => {
 
 // NYTT BLOGGINLÄGG: POST-förfrågningar
 app.post('/newpost', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).send("Not permitted.");
+  }
   try {
 
     // Skapa ett nytt blogginlägg med titel, content, datum och hämta användare från sessionsdata
@@ -201,6 +204,10 @@ app.post('/newpost', async (req, res) => {
 
 // BLOGGINLÄGG: Ta bort inlägg
 app.post('/newpost/:id', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).send("Not permitted.");
+  }
+
   try {
     const { id } = req.params; // Hämta inläggets ID
 
@@ -228,27 +235,6 @@ function confirmDelete(postId) {
   }
 }
 
-
-// // BLOGGINLÄGG: Ta bort inlägg
-// app.post('/newpost/:id', async (req, res) => {
-//   try {
-//     const { id } = req.params; // Hämta inläggets ID
-
-//     // Sök och ta bort inlägget från databasen baserat på det angivna ID:et
-//     const findPost = await Post.findByIdAndDelete(id);
-
-//     // Kontrollera om inlägget inte kunde hittas
-//     if (!findPost) {
-//       return res.status(404).json({ message: `Cannot find any post with ID ${id}` });
-//     } else {
-//       // Om inlägget har tagits bort, omdirigera till startsidan
-//       res.redirect('/');
-//     }
-//   } catch (error) {
-//     // Hantera eventuella fel
-//     res.status(500).json({ message: error.message });
-//   }
-// });
 
 // LOGOUT: GET
 app.get('/logout', async (req, res) => {
