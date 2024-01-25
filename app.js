@@ -10,6 +10,8 @@ const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const MongoDBStore = require('connect-mongodb-session')(session);
 const { User, Post } = require('./models/models')
+const loginRoutes = require('./blueprints/login');
+
 
 // Skapar en Express-app
 const app = express();
@@ -45,6 +47,7 @@ app.use(
     store: store,
   })
 );
+app.use('/', loginRoutes)
 
 // Anslut till MongoDB-databasen
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -82,44 +85,6 @@ app.get('/', async (req, res) => {
 app.get('/login', (req, res) => {
   res.render('login'); // Rendera "login.ejs" för inloggningssidan
 });
-
-// LOGIN-sida: POST-förfrågningar
-app.post('/login', async (req, res) => {
-  // Hämta användarnamn och lösenord från POST-förfrågan
-  const { username, password } = req.body;
-
-  try {
-    // Sök efter användaren i databasen baserat på e-post
-    const foundUser = await User.findOne({ email: username });
-
-    if (foundUser) {
-      // Om användaren finns, jämför det angivna lösenordet med det hashade lösenordet i databasen
-      const result = await bcrypt.compare(password, foundUser.password);
-
-      if (result) {
-        // Om lösenordet är korrekt, skapa en sessionsvariabel för användaren, skicka sedan till startsidan
-        req.session.user = { username: foundUser.email, firstName: foundUser.firstName };
-        req.session.save(() => {
-          console.log('Successful login. User data:', req.session.user);
-          res.redirect('/');
-        });
-      } else {
-        // Om lösenordet är fel, skicka tillbaka till inloggningssidan med en popup-ruta
-        console.log('Incorrect password');
-        res.send('<script>alert("Nämen! Lösenordet var fel - försök igen!"); window.location.href = "/login";</script>');
-      }
-    } else {
-      // Om användarnamnet inte finns i databasen, skicka tillbaka till inloggningssidan med en popup-ruta
-      console.log('Incorrect username');
-      res.send('<script>alert("Attans, fel användarnamn. Det ska vara din mailadress, försök igen!"); window.location.href = "/login";</script>');
-    }
-  } catch (error) {
-    // Hantera eventuella fel 
-    console.log(error);
-    res.status(500).send('Internal Server Error');
-  }
-});
-
 
 // REGISTRERA ANVÄNDARE: GET-förfrågningar
 app.get('/register', (req, res) => {
