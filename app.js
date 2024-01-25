@@ -9,6 +9,7 @@ const saltRounds = 10;
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const MongoDBStore = require('connect-mongodb-session')(session);
+const { User, Post } = require('./models/models')
 
 // Skapar en Express-app
 const app = express();
@@ -55,23 +56,7 @@ db.once('open', () => {
   console.log('Connected to MongoDB Atlas');
 });
 
-// Skapa ett mongoose-schema för användare
-const userSchema = new mongoose.Schema({
-  firstName: String,
-  email: String,
-  password: String,
-});
-// Skapa ett mongoose-schema för blogg-poster
-const postSchema = new mongoose.Schema({
-  title: String,
-  content: String,
-  createdAt: Date,
-  createdBy: String,
-});
 
-// Skapa mongoose-modellen baserat på schemat
-const User = mongoose.model('User', userSchema);
-const Post = mongoose.model('Post', postSchema);
 
 // HOMEPAGE: GET-förfrågningar
 app.get('/', async (req, res) => {
