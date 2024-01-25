@@ -11,6 +11,8 @@ const cookieParser = require('cookie-parser');
 const MongoDBStore = require('connect-mongodb-session')(session);
 const { User, Post } = require('./models/models')
 const loginRoutes = require('./blueprints/login');
+const registerRoutes = require('./blueprints/register');
+
 
 
 // Skapar en Express-app
@@ -47,7 +49,8 @@ app.use(
     store: store,
   })
 );
-app.use('/', loginRoutes)
+app.use('/', loginRoutes);
+app.use('/', registerRoutes);
 
 // Anslut till MongoDB-databasen
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -91,38 +94,11 @@ app.get('/register', (req, res) => {
   res.render('register.ejs', { userIsLoggedIn: false, loggedInUsername: '' });
 });
 
-// REGISTRERA ANVÄNDARE: POST-förfrågningar
-app.post('/register', async (req, res) => {
-  try {
-    // Skapa en hash av det angivna lösenordet
-    const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
-
-    // Skapa en ny användare med angivet förnamn, e-postadress och hashat lösenord
-    const newUser = new User({
-      firstName: req.body.firstName,
-      email: req.body.username,
-      password: hashedPassword,
-    });
-
-    // Spara den nya användaren i databasen
-    await newUser.save();
-    console.log('User saved to blogDB:', newUser);
-
-    // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
-    req.session.user = { username: newUser.email, firstName: newUser.firstName };
-    res.redirect('/login');
-  } catch (error) {
-    // Hantera eventuella fel
-    console.log('Error saving user to blogDB:', error);
-    res.status(500).send('Internal Server Error');
-  }
-});
-
-
 // NYTT BLOGGINLÄGG: GET-förfrågningar
 app.get('/newpost', async (req, res) => {
   res.render('new_post', { userIsLoggedIn: true, loggedInUsername: req.session.user.firstName });
 });
+
 
 // NYTT BLOGGINLÄGG: POST-förfrågningar
 app.post('/newpost', async (req, res) => {
@@ -177,13 +153,18 @@ app.post('/newpost/:id', async (req, res) => {
   }
 });
 
+
+
 // Funktion för att bekräfta radering
 function confirmDelete(postId) {
+  if (!req.session.user) {
+    return res.status(401).send("Not permitted.");
+  }
   var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
   if (confirmation) {
     document.getElementById("deleteForm_" + postId).submit();
   }
-}
+};
 
 
 // LOGOUT: GET

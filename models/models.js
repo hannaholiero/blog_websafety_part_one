@@ -1,11 +1,19 @@
 const mongoose = require('mongoose');
 
+
 // Skapa ett mongoose-schema för användare
 const userSchema = new mongoose.Schema({
   firstName: String,
   email: String,
   password: String,
+  role: {
+    type: String,
+    enum: ['reader', 'admin'],
+    default: 'reader', // Standardrollen för nya användare
+  },
 });
+
+
 // Skapa ett mongoose-schema för blogg-poster
 const postSchema = new mongoose.Schema({
   title: String,
@@ -14,4 +22,7 @@ const postSchema = new mongoose.Schema({
   createdBy: String,
 });
 
-module.exports = { User: mongoose.model('User', userSchema), Post: mongoose.model('Post', postSchema) }
+module.exports = {
+  User: mongoose.model('User', userSchema),
+  Post: mongoose.model('Post', postSchema),
+};
