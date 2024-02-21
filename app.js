@@ -62,21 +62,38 @@ db.once('open', () => {
   console.log('Connected to MongoDB Atlas');
 });
 
+function hasPermission(action) {
+  return async (req, res, next) => {
+    const username = req.session.username;
+    const role = await redisClient.hGet(`user:${username}`, "role");
+    const hasPermission = await redisClient.sIsMember(`role:${role}`, action)
+    if (hasPermission) {
+      next(); // Permission granted
+    } else {
+      res.status(403).send("Access Denied"); // Permission denied
+    }
+  };
+}
 
+function isAuthenticated() {
+  return async (req, res, next) => {
+    if (req.session.user) {
+      next(); //Permission granted
+    } else {
+      res.status(401).send("Access Denied"); // Permission denied
+    }
+  };
+}
 
 // HOMEPAGE: GET-förfrågningar
 app.get('/', async (req, res) => {
   try {
     const posts = await Post.find().sort({ createdAt: 'desc' });
-
-    // Konsollogga för att kontrollera session
-    console.log('Session id:', req.session.id);
-    console.log('Session data:', req.session);
-
     if (req.session.user) {
-      res.render('homepage.ejs', { userIsLoggedIn: true, loggedInUsername: req.session.user.firstName, posts: posts });
+      const userHasRoleAdmin = (req.session.user.role === 'admin');
+      res.render('homepage.ejs', { userIsLoggedIn: true, userIsAdmin: userHasRoleAdmin, loggedInUsername: req.session.user.firstName, posts: posts });
     } else {
-      res.render('homepage.ejs', { userIsLoggedIn: false, loggedInUsername: '', posts: posts });
+      res.render('homepage.ejs', { userIsLoggedIn: false, userIsAdmin: false, loggedInUsername: '', posts: posts });
     }
   } catch (error) {
     console.log(error);
@@ -95,13 +112,13 @@ app.get('/register', (req, res) => {
 });
 
 // NYTT BLOGGINLÄGG: GET-förfrågningar
-app.get('/newpost', async (req, res) => {
+app.get('/newpost', isAuthenticated(), async (req, res) => {
   res.render('new_post', { userIsLoggedIn: true, loggedInUsername: req.session.user.firstName });
 });
 
 
 // NYTT BLOGGINLÄGG: POST-förfrågningar
-app.post('/newpost', async (req, res) => {
+app.post('/newpost', isAuthenticated(), async (req, res) => {
   if (!req.session.user) {
     return res.status(401).send("Not permitted.");
   }
@@ -129,10 +146,7 @@ app.post('/newpost', async (req, res) => {
 });
 
 // BLOGGINLÄGG: Ta bort inlägg
-app.post('/newpost/:id', async (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).send("Not permitted.");
-  }
+app.post('/newpost/:id', isAuthenticated(), async (req, res) => {
 
   try {
     const { id } = req.params; // Hämta inläggets ID

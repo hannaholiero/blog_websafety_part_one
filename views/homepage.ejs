@@ -23,7 +23,7 @@
 
               <div class="flex-under">
                 <div class="tabort">
-                  <% if (post.createdBy===loggedInUsername) { %>
+                  <% if (post.createdBy===loggedInUsername || userIsAdmin) { %>
                     <button class="tabort-btn" onclick="confirmDelete('<%= post._id %>')">Ta bort inlägg</button>
                     <form id="deleteForm_<%= post._id %>" action="/newpost/<%= post._id %>" method="POST"
                       style="display: none;">
