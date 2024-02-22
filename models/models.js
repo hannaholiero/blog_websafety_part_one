@@ -20,6 +20,7 @@ const postSchema = new mongoose.Schema({
   content: String,
   createdAt: Date,
   createdBy: String,
+  creatorId: String,
 });
 
 module.exports = {

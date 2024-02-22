@@ -24,11 +24,9 @@
               <div class="flex-under">
                 <div class="tabort">
                   <% if (post.createdBy===loggedInUsername || userIsAdmin) { %>
-                    <button class="tabort-btn" onclick="confirmDelete('<%= post._id %>')">Ta bort inlägg</button>
-                    <form id="deleteForm_<%= post._id %>" action="/newpost/<%= post._id %>" method="POST"
-                      style="display: none;">
-                      <button type="submit">Bekräfta borttagning</button>
-                    </form>
+                    <button type="button" class="tabort-btn" onclick="confirmDelete('<%= post._id %>')">Ta bort
+                      inlägg</button>
+
                     <% } %>
                 </div>
 
@@ -50,12 +48,28 @@
             </div>
 
             <script>
-              function confirmDelete(postId) {
-                var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
-                if (confirmation) {
-                  document.getElementById("deleteForm_" + postId).submit();
+
+              async function confirmDelete(postId) {
+                try {
+                  var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
+                  if (confirmation) {
+                    const response = await fetch(`/newpost/${postId}`,
+                      {
+                        method: 'DELETE',
+                        credentials: 'include', // Inkludera cookies)
+                      }
+                    );
+                    if (response.ok) {
+                      window.location.reload();
+                    } else {
+                      throw new Error("Failed to delete post");
+                    }
+                  }
+                } catch (error) {
+                  console.error(error)
                 }
               }
+
             </script>
             <hr>
             <% } %>

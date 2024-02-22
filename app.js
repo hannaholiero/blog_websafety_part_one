@@ -130,6 +130,7 @@ app.post('/newpost', isAuthenticated(), async (req, res) => {
       content: req.body.content,
       createdAt: Date.now(),
       createdBy: req.session.user.firstName,
+      creatorId: req.session.user.userId
     });
     // Spara blogginlägget i databasen
     await newPost.save();
@@ -145,21 +146,38 @@ app.post('/newpost', isAuthenticated(), async (req, res) => {
   }
 });
 
-// BLOGGINLÄGG: Ta bort inlägg
-app.post('/newpost/:id', isAuthenticated(), async (req, res) => {
 
+
+
+app.delete('/newpost/:id', isAuthenticated(), async (req, res) => {
   try {
-    const { id } = req.params; // Hämta inläggets ID
+    const { id } = req.params;
+    const userId = req.session.user.userId;
+    const isAdmin = (req.session.user.role === 'admin');
 
-    // Sök och ta bort inlägget från databasen baserat på det angivna ID:et
-    const findPost = await Post.findByIdAndDelete(id);
+    const findPostById = await Post.findById(id);
+    const postOwner = findPostById.creatorId;
+    console.log(findPostById);
+
+    console.log("postowner: " + postOwner);
+    console.log("userId is " + userId);
+    console.log("");
+    console.log(typeof userId);
+    console.log(typeof postOwner);
+
+
+    if (!isAdmin && postOwner !== userId) {
+      return res.status(403).send("Access Denied"); // Permission denied
+    }
+    const findPostAndDelete = await Post.findByIdAndDelete(id);
 
     // Kontrollera om inlägget inte kunde hittas
-    if (!findPost) {
-      return res.status(404).json({ message: `Cannot find any post with ID ${id}` });
+    if (!findPostAndDelete) {
+      return res.status(404).json({ ok: false, message: `Cannot find any post with ID ${id}` });
     } else {
+      console.log("all good");
       // Om inlägget har tagits bort, omdirigera till startsidan
-      res.redirect('/');
+      return res.status(200).json({ ok: true, message: `Post ${id} has been deleted` });
     }
   } catch (error) {
     // Hantera eventuella fel
@@ -168,17 +186,40 @@ app.post('/newpost/:id', isAuthenticated(), async (req, res) => {
 });
 
 
+// BLOGGINLÄGG: Ta bort inlägg
+// app.post('/newpost/:id', isAuthenticated(), async (req, res) => {
 
-// Funktion för att bekräfta radering
-function confirmDelete(postId) {
-  if (!req.session.user) {
-    return res.status(401).send("Not permitted.");
-  }
-  var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
-  if (confirmation) {
-    document.getElementById("deleteForm_" + postId).submit();
-  }
-};
+//   try {
+//     const { id } = req.params; // Hämta inläggets ID
+
+//     // Sök och ta bort inlägget från databasen baserat på det angivna ID:et
+//     const findPost = await Post.findByIdAndDelete(id);
+
+//     // Kontrollera om inlägget inte kunde hittas
+//     if (!findPost) {
+//       return res.status(404).json({ message: `Cannot find any post with ID ${id}` });
+//     } else {
+//       // Om inlägget har tagits bort, omdirigera till startsidan
+//       res.redirect('/');
+//     }
+//   } catch (error) {
+//     // Hantera eventuella fel
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+
+
+// // Funktion för att bekräfta radering
+// function confirmDelete(postId) {
+//   if (!req.session.user) {
+//     return res.status(401).send("Not permitted.");
+//   }
+//   var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
+//   if (confirmation) {
+//     document.getElementById("deleteForm_" + postId).submit();
+//   }
+// };
 
 
 // LOGOUT: GET

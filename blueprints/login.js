@@ -19,7 +19,12 @@ router.post('/login', async (req, res) => {
 
       if (result) {
         // Om lösenordet är korrekt, skapa en sessionsvariabel för användaren, skicka sedan till startsidan
-        req.session.user = { username: foundUser.email, firstName: foundUser.firstName, role: foundUser.role };
+        req.session.user = {
+          userId: foundUser._id.toString(),
+          username: foundUser.email,
+          firstName: foundUser.firstName,
+          role: foundUser.role
+        };
         req.session.save(() => {
           console.log('Successful login. User data:', req.session.user);
           res.redirect('/');
