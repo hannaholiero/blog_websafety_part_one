@@ -157,14 +157,6 @@ app.delete('/newpost/:id', isAuthenticated(), async (req, res) => {
 
     const findPostById = await Post.findById(id);
     const postOwner = findPostById.creatorId;
-    console.log(findPostById);
-
-    console.log("postowner: " + postOwner);
-    console.log("userId is " + userId);
-    console.log("");
-    console.log(typeof userId);
-    console.log(typeof postOwner);
-
 
     if (!isAdmin && postOwner !== userId) {
       return res.status(403).send("Access Denied"); // Permission denied
@@ -184,42 +176,6 @@ app.delete('/newpost/:id', isAuthenticated(), async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
-
-// BLOGGINLÄGG: Ta bort inlägg
-// app.post('/newpost/:id', isAuthenticated(), async (req, res) => {
-
-//   try {
-//     const { id } = req.params; // Hämta inläggets ID
-
-//     // Sök och ta bort inlägget från databasen baserat på det angivna ID:et
-//     const findPost = await Post.findByIdAndDelete(id);
-
-//     // Kontrollera om inlägget inte kunde hittas
-//     if (!findPost) {
-//       return res.status(404).json({ message: `Cannot find any post with ID ${id}` });
-//     } else {
-//       // Om inlägget har tagits bort, omdirigera till startsidan
-//       res.redirect('/');
-//     }
-//   } catch (error) {
-//     // Hantera eventuella fel
-//     res.status(500).json({ message: error.message });
-//   }
-// });
-
-
-
-// // Funktion för att bekräfta radering
-// function confirmDelete(postId) {
-//   if (!req.session.user) {
-//     return res.status(401).send("Not permitted.");
-//   }
-//   var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
-//   if (confirmation) {
-//     document.getElementById("deleteForm_" + postId).submit();
-//   }
-// };
 
 
 // LOGOUT: GET
