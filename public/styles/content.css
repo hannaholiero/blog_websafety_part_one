@@ -184,9 +184,39 @@ section {
   align-items: center;
 }
 
+.flex-github-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.comment-section {
+  display: grid;
+  padding: 20px;
+}
+
+.comment-container {
+  display: flex;
+}
+
 .flex-under-right {
   display: flex;
   align-items: center;
+}
+
+#new-comment {
+  height: auto !important;
+}
+
+#heart {
+  color: grey;
+  font-size: 50px;
+}
+
+#heart.red {
+  color: red;
 }
 
 

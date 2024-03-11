@@ -19,6 +19,8 @@
 
                   <%= post.content %>
                 </p>
+
+
               </div>
 
               <div class="flex-under">
@@ -45,32 +47,38 @@
                   </p>
                 </div>
               </div>
+              <div class="comment-section">
+                <!-- Inläggssektionen -->
+                <div class="comment-section">
+                  <!-- Gilla-knapp -->
+                  <i class="fa fa-heart" id="heart"></i>
+                  <button id="likeButton">Like</button>
+                  <span id="likeCount">0</span>
+                  <!-- Antal gillningar -->
+                  <div id="like-count-container">
+                    <p>Likes: <span id="like-count_<%= post._id %>">
+                        <%= post.likesCount %>
+                      </span></p>
+                  </div>
+                </div>
+
+
+
+
+                <div id="comment-container">
+                  <!-- Existing comments will go here -->
+                </div>
+                <h4>Please add your comment</h4>
+
+                <textarea name="" id="new-comment"></textarea>
+                <br>
+                <button id="btn-post">Post</button>
+
+              </div>
+
             </div>
 
-            <script>
 
-              async function confirmDelete(postId) {
-                try {
-                  var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
-                  if (confirmation) {
-                    const response = await fetch(`/newpost/${postId}`,
-                      {
-                        method: 'DELETE',
-                        credentials: 'include', // Inkludera cookies)
-                      }
-                    );
-                    if (response.ok) {
-                      window.location.reload();
-                    } else {
-                      throw new Error("Failed to delete post");
-                    }
-                  }
-                } catch (error) {
-                  console.error(error)
-                }
-              }
-
-            </script>
             <hr>
             <% } %>
               <% } else { %>
@@ -79,5 +87,97 @@
       </ul>
     </section>
   </div>
+  <script>
+
+
+    async function confirmDelete(postId) {
+      try {
+        var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
+        if (confirmation) {
+          const response = await fetch(`/newpost/${postId}`,
+            {
+              method: 'DELETE',
+              credentials: 'include', // Inkludera cookies)
+            }
+          );
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            throw new Error("Failed to delete post");
+          }
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+    (function () {
+      const heart = document.getElementById('heart');
+      heart.addEventListener('click', function () {
+        heart.classList.toggle('red');
+      });
+    })();
+
+    const likeButton = document.getElementById('likeButton');
+    const likeCount = document.getElementById('likeCount');
+    let count = 0;
+
+    likeButton.addEventListener('click', () => {
+      count++;
+      likeCount.innerText = count;
+    });
+
+
+    // var heart = document.getElementById('heart');
+    // heart.addEventListener("click", function () {
+    //   heart.classList.toggle('red');
+    // });
+
+    // // Step 1: Add an event listener to the "Post" button
+    // document.getElementById("btn-post").addEventListener("click", function () {
+    //   // This line sets up an event listener for the click event on the "Post" button.
+    //   // When the button is clicked, the function provided as the second argument will run.
+
+    //   // Step 2: Get the comment from the textarea
+    //   const newComment = document.getElementById("new-comment").value;
+
+    //   // Step 3: Create a new paragraph element for the comment
+    //   const commentContainer = document.getElementById("comment-container");
+    //   const commentElement = document.createElement("p");
+    //   commentElement.innerText = newComment;
+
+    //   // Step 4: Append the comment to the comment container
+    //   commentContainer.appendChild(commentElement);
+
+    //   // Clear the textarea after posting the comment
+    //   document.getElementById("new-comment").value = "";
+    // });
+    // document.querySelectorAll('.like-button').forEach(button => {
+    //   button.addEventListener('click', async () => {
+    //     const postId = button.dataset.postid;
+
+    //     try {
+    //       // Skicka en förfrågan till servern för att gilla inlägget
+    //       const response = await fetch(`/like/${postId}`, {
+    //         method: 'POST',
+    //         credentials: 'include'
+    //       });
+
+    //       if (response.ok) {
+    //         // Uppdatera antalet gillningar på klientens sida
+    //         const likeCountElement = document.getElementById(`like-count_${postId}`);
+    //         const currentLikes = parseInt(likeCountElement.innerText);
+    //         likeCountElement.innerText = currentLikes + 1;
+    //       } else {
+    //         throw new Error('Failed to like post');
+    //       }
+    //     } catch (error) {
+    //       console.error('Error liking post:', error);
+    //     }
+    //   });
+    // });
+
+
+
+  </script>
   </body>
   <%- include('partials/footer') %>

@@ -53,7 +53,7 @@ app.use('/', loginRoutes);
 app.use('/', registerRoutes);
 
 // Anslut till MongoDB-databasen
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+mongoose.connect(process.env.MONGODB_URI);
 
 // Kontrollerar så den är ansluten till databasen
 const db = mongoose.connection;
@@ -62,18 +62,9 @@ db.once('open', () => {
   console.log('Connected to MongoDB Atlas');
 });
 
-function hasPermission(action) {
-  return async (req, res, next) => {
-    const username = req.session.username;
-    const role = await redisClient.hGet(`user:${username}`, "role");
-    const hasPermission = await redisClient.sIsMember(`role:${role}`, action)
-    if (hasPermission) {
-      next(); // Permission granted
-    } else {
-      res.status(403).send("Access Denied"); // Permission denied
-    }
-  };
-}
+
+
+
 
 function isAuthenticated() {
   return async (req, res, next) => {
@@ -84,6 +75,93 @@ function isAuthenticated() {
     }
   };
 }
+
+// GITHUB: INLOGGNING
+
+app.get('/auth/github', (_req, res) => {
+  const authUrl = `http://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}`;
+  res.redirect(authUrl); // Omdirigera till GitHub-inloggning
+});
+
+app.get('/auth/github/login/callback', async (req, res) => {
+  try {
+    const code = req.query.code;
+    const response = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      body: new URLSearchParams({
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code: code,
+      }),
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    const jsonResponse = await response.json();
+    req.session.access_token = jsonResponse.access_token;
+    const userInfo = await getUserInfoFromGitHub(req.session.access_token);
+    req.session.user = userInfo;
+    req.session.authenticated = true;
+    const githubId = userInfo.id;
+    console.log(githubId);
+    //Kollar ifall Githubanvändaren finns i den lokala(atlas)-databasen
+    const foundGithubUser = await User.findOne({ githubId: userInfo.id });
+    //Om kontot finns - skapa sessionsanvändare
+    if (foundGithubUser) {
+
+      req.session.user = {
+        userId: foundGithubUser._id.toString(),
+        username: foundGithubUser.email,
+        firstName: foundGithubUser.firstName,
+        role: foundGithubUser.role
+      };
+      req.session.save(() => {
+        console.log('Successful login. User data:', req.session.user);
+
+        return res.redirect('/');
+      });
+      return;
+      //Om inte - skapa nytt konto mha info från userInfo
+    } else {
+      const newUser = new User({
+        firstName: userInfo.login,
+        email: userInfo.email,
+        password: '',
+        role: 'reader', // Tilldelar standardrollen 'reader' för nya användare,
+        githubId: userInfo.id
+      });
+
+      // Spara den nya användaren i databasen
+      await newUser.save();
+      console.log('User saved to blogDB:', newUser);
+
+      // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
+      req.session.user = { username: newUser.email, firstName: newUser.firstName };
+
+    }
+
+    console.log(userInfo)
+  } catch (error) {
+    console.error('Error during GitHub callback:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+
+const getUserInfoFromGitHub = async (access_token) => {
+  const response = await fetch('https://api.github.com/user', {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+    },
+  });
+  return await response.json();
+};
+
+
+
+
+
+
 
 // HOMEPAGE: GET-förfrågningar
 app.get('/', async (req, res) => {

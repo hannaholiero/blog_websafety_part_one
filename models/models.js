@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
     enum: ['reader', 'admin'],
     default: 'reader', // Standardrollen för nya användare
   },
+  githubId: String,
 });
 
 
@@ -22,6 +23,7 @@ const postSchema = new mongoose.Schema({
   createdBy: String,
   creatorId: String,
 });
+
 
 module.exports = {
   User: mongoose.model('User', userSchema),
