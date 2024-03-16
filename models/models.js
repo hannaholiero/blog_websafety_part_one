@@ -24,8 +24,19 @@ const postSchema = new mongoose.Schema({
   creatorId: String,
 });
 
+// mongoose-schema för kommentarer
+const commentSchema = new mongoose.Schema({
+  commentContent: String,
+  createdAt: Date,
+  createdBy: String,
+  creatorId: String,
+  postId: String,
+
+});
+
 
 module.exports = {
   User: mongoose.model('User', userSchema),
   Post: mongoose.model('Post', postSchema),
+  Comment: mongoose.model('Comment', commentSchema),
 };

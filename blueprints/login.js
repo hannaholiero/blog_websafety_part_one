@@ -3,12 +3,23 @@ const ejs = require('ejs');
 const bcrypt = require('bcrypt');
 const router = express.Router();
 const { User } = require("../models/models")
+const crypto = require('crypto')
+
+const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
+
+function verifyCsrfToken(req, res, next) {
+  if (req.session.csrfToken === req.body._csrf) {
+    next();
+  } else {
+    res.send("Invalid CSRF-token");
+  }
+}
+
 
 // LOGIN-sida: POST-förfrågningar
-router.post('/login', async (req, res) => {
+router.post('/login', verifyCsrfToken, async (req, res) => {
   // Hämta användarnamn och lösenord från POST-förfrågan
   const { username, password } = req.body;
-
   try {
     // Sök efter användaren i databasen baserat på e-post
     const foundUser = await User.findOne({ email: username });
@@ -23,8 +34,10 @@ router.post('/login', async (req, res) => {
           userId: foundUser._id.toString(),
           username: foundUser.email,
           firstName: foundUser.firstName,
-          role: foundUser.role
+          role: foundUser.role,
+
         };
+
         req.session.save(() => {
           console.log('Successful login. User data:', req.session.user);
           res.redirect('/');

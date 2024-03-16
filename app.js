@@ -9,9 +9,11 @@ const saltRounds = 10;
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const MongoDBStore = require('connect-mongodb-session')(session);
-const { User, Post } = require('./models/models')
-const loginRoutes = require('./blueprints/login');
-const registerRoutes = require('./blueprints/register');
+const { User, Post, Comment } = require('./models/models')
+const helmet = require('helmet');
+const contentSecurityPolicy = require("helmet-csp");
+const DOMPurify = require('isomorphic-dompurify');
+const crypto = require('crypto');
 
 
 
@@ -49,18 +51,34 @@ app.use(
     store: store,
   })
 );
-app.use('/', loginRoutes);
-app.use('/', registerRoutes);
 
 // Anslut till MongoDB-databasen
 mongoose.connect(process.env.MONGODB_URI);
-
 // Kontrollerar så den är ansluten till databasen
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
 db.once('open', () => {
   console.log('Connected to MongoDB Atlas');
 });
+
+
+
+app.use(helmet.contentSecurityPolicy({
+  useDefaults: true,
+  directives: {
+    scriptSrc: [
+      "'self'",
+      "'nonce-supersecret'",
+      "https://kit.fontawesome.com/",
+      "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
+      "https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js",
+    ],
+    connectSrc: ["'self'", "https://ka-f.fontawesome.com"],
+  }
+}));
+
+
+// const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
 
 
 
@@ -75,6 +93,17 @@ function isAuthenticated() {
     }
   };
 }
+
+function verifyCsrfToken(req, res, next) {
+
+  if (req.session.csrfToken === req.body._csrf) {
+    next();
+  } else {
+    console.log("är vi här uppe bland csrfen??");
+    res.status(401).send("Invalid CSRF-token");
+  }
+}
+
 
 // GITHUB: INLOGGNING
 
@@ -104,10 +133,12 @@ app.get('/auth/github/login/callback', async (req, res) => {
     req.session.authenticated = true;
     const githubId = userInfo.id;
     console.log(githubId);
-    //Kollar ifall Githubanvändaren finns i den lokala(atlas)-databasen
+    //Kolla ifall Github-användaren finns i db
     const foundGithubUser = await User.findOne({ githubId: userInfo.id });
     //Om kontot finns - skapa sessionsanvändare
     if (foundGithubUser) {
+      const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
+      req.session.csrfToken = csrfToken; // Token knyts till den aktuella sessionen.
 
       req.session.user = {
         userId: foundGithubUser._id.toString(),
@@ -116,7 +147,7 @@ app.get('/auth/github/login/callback', async (req, res) => {
         role: foundGithubUser.role
       };
       req.session.save(() => {
-        console.log('Successful login. User data:', req.session.user);
+        console.log('Successful login. User data:', req.session.user,);
 
         return res.redirect('/');
       });
@@ -136,7 +167,7 @@ app.get('/auth/github/login/callback', async (req, res) => {
       console.log('User saved to blogDB:', newUser);
 
       // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
-      req.session.user = { username: newUser.email, firstName: newUser.firstName };
+      req.session.user = { username: newUser.email, firstName: newUser.firstName, csrfToken: req.session.csrfToken };
 
     }
 
@@ -167,11 +198,26 @@ const getUserInfoFromGitHub = async (access_token) => {
 app.get('/', async (req, res) => {
   try {
     const posts = await Post.find().sort({ createdAt: 'desc' });
+    const comments = await Comment.find().sort({ createdAt: 'desc' });
+
     if (req.session.user) {
       const userHasRoleAdmin = (req.session.user.role === 'admin');
-      res.render('homepage.ejs', { userIsLoggedIn: true, userIsAdmin: userHasRoleAdmin, loggedInUsername: req.session.user.firstName, posts: posts });
+      res.render('homepage.ejs', {
+        csrfToken: req.session.csrfToken, //CSRF-token skickas med till formuläret.
+        userIsLoggedIn: true,
+        userIsAdmin: userHasRoleAdmin,
+        loggedInUsername: req.session.user.firstName,
+        posts: posts,
+        comments: comments
+      });
     } else {
-      res.render('homepage.ejs', { userIsLoggedIn: false, userIsAdmin: false, loggedInUsername: '', posts: posts });
+      res.render('homepage.ejs', {
+        userIsLoggedIn: false,
+        userIsAdmin: false,
+        loggedInUsername: '',
+        posts: posts,
+        comments: comments,
+      });
     }
   } catch (error) {
     console.log(error);
@@ -181,34 +227,120 @@ app.get('/', async (req, res) => {
 
 // LOGIN-sida: GET-förfrågningar
 app.get('/login', (req, res) => {
-  res.render('login'); // Rendera "login.ejs" för inloggningssidan
+  res.render('login', { csrfToken: req.session.csrfToken });
+
 });
 
 // REGISTRERA ANVÄNDARE: GET-förfrågningar
 app.get('/register', (req, res) => {
-  res.render('register.ejs', { userIsLoggedIn: false, loggedInUsername: '' });
+  res.render('register', { userIsLoggedIn: false, loggedInUsername: '', csrfToken: req.session.csrfToken });
 });
 
 // NYTT BLOGGINLÄGG: GET-förfrågningar
 app.get('/newpost', isAuthenticated(), async (req, res) => {
-  res.render('new_post', { userIsLoggedIn: true, loggedInUsername: req.session.user.firstName });
+  console.log("the csrfToken is" + req.session.csrfToken);
+  res.render('new_post', { userIsLoggedIn: true, loggedInUsername: req.session.user.firstName, csrfToken: req.session.csrfToken });
+});
+
+
+
+
+// LOGIN-sida: POST-förfrågningar
+app.post('/login', async (req, res) => {
+  // Hämta användarnamn och lösenord från POST-förfrågan
+  const { username, password } = req.body;
+
+  try {
+    // Sök efter användaren i databasen baserat på e-post
+    const foundUser = await User.findOne({ email: username });
+
+    if (foundUser) {
+
+      // Om användaren finns, jämför det angivna lösenordet med det hashade lösenordet i databasen
+      const result = await bcrypt.compare(password, foundUser.password);
+
+      if (result) {
+        const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
+        req.session.csrfToken = csrfToken; // Token knyts till den aktuella sessionen.
+        // Om lösenordet är korrekt, skapa en sessionsvariabel för användaren, skicka sedan till startsidan
+        req.session.user = {
+          userId: foundUser._id.toString(),
+          username: foundUser.email,
+          firstName: foundUser.firstName,
+          role: foundUser.role
+        };
+        req.session.save(() => {
+          console.log('Successful login. User data:', req.session.user);
+          console.log(req.session.csrfToken);
+          console.log(csrfToken);
+          res.redirect("/");
+        });
+      } else {
+        // Om lösenordet är fel, skicka tillbaka till inloggningssidan med en popup-ruta
+        console.log('Incorrect password');
+        res.send('<script>alert("Nämen! Lösenordet var fel - försök igen!"); window.location.href = "/login";</script>');
+      }
+    } else {
+      // Om användarnamnet inte finns i databasen, skicka tillbaka till inloggningssidan med en popup-ruta
+      console.log('Incorrect username');
+      res.send('<script>alert("Attans, fel användarnamn. Det ska vara din mailadress, försök igen!"); window.location.href = "/login";</script>');
+    }
+  } catch (error) {
+    // Hantera eventuella fel 
+    console.log(error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+
+// REGISTRERA ANVÄNDARE - POST
+app.post('/register', async (req, res) => {
+  try {
+    // Skapa en hash av det angivna lösenordet
+    const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+
+    // Skapa en ny användare med angiven information och tilldela standardrollen 'reader'
+    const newUser = new User({
+      firstName: req.body.firstName,
+      email: req.body.username,
+      password: hashedPassword,
+      role: 'reader', // Tilldelar standardrollen 'reader' för nya användare
+    });
+
+    // Spara den nya användaren i databasen
+    await newUser.save();
+    console.log('User saved to blogDB:', newUser);
+
+    // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
+    req.session.user = { username: newUser.email, firstName: newUser.firstName };
+    const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
+    req.session.csrfToken = csrfToken; // Token knyts till den aktuella sessionen.
+    res.redirect('/login');
+  } catch (error) {
+    // Hantera eventuella fel
+    console.log('Error saving user to blogDB:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 
 // NYTT BLOGGINLÄGG: POST-förfrågningar
-app.post('/newpost', isAuthenticated(), async (req, res) => {
-  if (!req.session.user) {
-    return res.status(401).send("Not permitted.");
-  }
+app.post('/newpost', isAuthenticated(), verifyCsrfToken, async (req, res) => {
+  // if (!req.session.user) {
+  //   return res.status(401).send("Not permitted.");
+  // }
+
   try {
 
     // Skapa ett nytt blogginlägg med titel, content, datum och hämta användare från sessionsdata
     const newPost = new Post({
       title: req.body.title,
-      content: req.body.content,
+      content: DOMPurify.sanitize(req.body.content, { ALLOWED_TAGS: ['b', 'u', 'strong'] }),
       createdAt: Date.now(),
       createdBy: req.session.user.firstName,
-      creatorId: req.session.user.userId
+      creatorId: req.session.user.userId,
+      _csrf: req.body._csrf,
+
     });
     // Spara blogginlägget i databasen
     await newPost.save();
@@ -226,8 +358,34 @@ app.post('/newpost', isAuthenticated(), async (req, res) => {
 
 
 
+// KOMMENTAR-route
+app.post('/comment/:postId', isAuthenticated(), verifyCsrfToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
 
-app.delete('/newpost/:id', isAuthenticated(), async (req, res) => {
+    // Sparar kommentaren i databasen och returnera kommentaren med användarnamn
+    const newComment = await Comment.create({
+      commentContent: DOMPurify.sanitize(req.body.comment),
+      createdAt: Date.now(),
+      createdBy: req.session.user.firstName,
+      creatorId: req.session.user.id,
+      postId: postId,
+    });
+    await newComment.save();
+    console.log("post saved maddafakka", newComment);
+    res.redirect('/');
+
+
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+
+
+
+app.delete('/newpost/:id', isAuthenticated(), verifyCsrfToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.session.user.userId;

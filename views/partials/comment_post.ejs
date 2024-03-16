@@ -1,0 +1,19 @@
+<div class="comment-post-container">
+  <div class="comment-col-text">
+    <p>
+      <%- comment.commentContent %>
+    </p>
+  </div>
+  <div class="comment-col-other">
+    <div class="comment-creator">
+      <p><i>
+          <%= comment.createdBy %>
+        </i></p>
+    </div>
+    <div class="comment-date">
+      <%= comment.createdAt.toLocaleString('sv-SE', { hour: 'numeric' , minute: 'numeric' , year: 'numeric' ,
+        month: '2-digit' , day: '2-digit' }) %>
+        </p>
+    </div>
+  </div>
+</div>

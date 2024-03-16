@@ -1,0 +1,9 @@
+<form action="/comment/<%= postId %>" method="POST">
+  <div class="form-group">
+    <label for="comment">Skriv din kommentar:</label>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+    <textarea class="form-control" name="comment" rows="3"></textarea>
+  </div>
+  <button type="submit" class="btn btn-dark">Skicka</button>
+</form>

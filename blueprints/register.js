@@ -4,6 +4,9 @@ const bcrypt = require('bcrypt');
 const { User } = require("../models/models");
 require('dotenv').config();
 const saltRounds = 10;
+const crypto = require('crypto');
+
+const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
 
 router.post('/register', async (req, res) => {
   try {
@@ -23,7 +26,7 @@ router.post('/register', async (req, res) => {
     console.log('User saved to blogDB:', newUser);
 
     // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
-    req.session.user = { username: newUser.email, firstName: newUser.firstName };
+    req.session.user = { username: newUser.email, firstName: newUser.firstName, csrfToken: req.session.csrfToken, };
     res.redirect('/login');
   } catch (error) {
     // Hantera eventuella fel
