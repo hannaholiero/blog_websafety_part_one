@@ -60,7 +60,7 @@
                               <%- include('partials/comment_form', { postId: post._id }) %>
 
                                 <% } %>
-                                  <!-- inkluderar 1) vilken fil 2) vilken data -->
+
 
             </div>
 
@@ -73,7 +73,7 @@
       </ul>
     </section>
   </div>
-  <script nonce="supersecret">
+  <script nonce="<%=supersecret %>">
 
     document.getElementById("tabort-btn").addEventListener("click", confirmDelete);
 

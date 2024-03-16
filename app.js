@@ -61,6 +61,11 @@ db.once('open', () => {
   console.log('Connected to MongoDB Atlas');
 });
 
+app.use((req, res, next) => {
+  res.locals.cspNonce = crypto.randomBytes(16).toString("hex");
+  // req.session.csrfToken = crypto.randomBytes(64).toString("hex");
+  next();
+});
 
 
 app.use(helmet.contentSecurityPolicy({
@@ -68,7 +73,7 @@ app.use(helmet.contentSecurityPolicy({
   directives: {
     scriptSrc: [
       "'self'",
-      "'nonce-supersecret'",
+      (req, res) => `'nonce-${res.locals.cspNonce}'`,
       "https://kit.fontawesome.com/",
       "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
       "https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js",
@@ -76,12 +81,6 @@ app.use(helmet.contentSecurityPolicy({
     connectSrc: ["'self'", "https://ka-f.fontawesome.com"],
   }
 }));
-
-
-// const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
-
-
-
 
 
 function isAuthenticated() {
@@ -203,6 +202,7 @@ app.get('/', async (req, res) => {
     if (req.session.user) {
       const userHasRoleAdmin = (req.session.user.role === 'admin');
       res.render('homepage.ejs', {
+        supersecret: `${res.locals.cspNonce}`,
         csrfToken: req.session.csrfToken, //CSRF-token skickas med till formuläret.
         userIsLoggedIn: true,
         userIsAdmin: userHasRoleAdmin,
@@ -212,6 +212,8 @@ app.get('/', async (req, res) => {
       });
     } else {
       res.render('homepage.ejs', {
+        supersecret: `${res.locals.cspNonce}`,
+        csrfToken: '',
         userIsLoggedIn: false,
         userIsAdmin: false,
         loggedInUsername: '',
@@ -219,10 +221,12 @@ app.get('/', async (req, res) => {
         comments: comments,
       });
     }
+    //supersecret = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
   } catch (error) {
     console.log(error);
     res.status(500).send('Internal Server Error');
   }
+
 });
 
 // LOGIN-sida: GET-förfrågningar
