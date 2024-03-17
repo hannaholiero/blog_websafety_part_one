@@ -61,8 +61,10 @@ db.once('open', () => {
   console.log('Connected to MongoDB Atlas');
 });
 
+// Generera nytt cspNonce på varje requests
 app.use((req, res, next) => {
   res.locals.cspNonce = crypto.randomBytes(16).toString("hex");
+  // Kan inte göra samma med csrf, den måste kunna valideras på nästa request innan det genereras nytt.
   // req.session.csrfToken = crypto.randomBytes(64).toString("hex");
   next();
 });
@@ -83,23 +85,21 @@ app.use(helmet.contentSecurityPolicy({
 }));
 
 
-function isAuthenticated() {
-  return async (req, res, next) => {
-    if (req.session.user) {
-      next(); //Permission granted
-    } else {
-      res.status(401).send("Access Denied"); // Permission denied
-    }
-  };
+function isAuthenticated(req, res, next) {
+  if (req.session.user) {
+    console.log("Authentication ok");
+    next(); //Permission granted
+  } else {
+    res.status(401).send("Access Denied"); // Permission denied
+  }
 }
 
 function verifyCsrfToken(req, res, next) {
-
   if (req.session.csrfToken === req.body._csrf) {
+    console.log("CSRF OK");
     next();
   } else {
-    console.log("är vi här uppe bland csrfen??");
-    res.status(401).send("Invalid CSRF-token");
+    res.status(403).send("Invalid CSRF-token");
   }
 }
 
@@ -131,13 +131,13 @@ app.get('/auth/github/login/callback', async (req, res) => {
     req.session.user = userInfo;
     req.session.authenticated = true;
     const githubId = userInfo.id;
-    console.log(githubId);
     //Kolla ifall Github-användaren finns i db
     const foundGithubUser = await User.findOne({ githubId: userInfo.id });
+    const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
+    req.session.csrfToken = csrfToken; // Token knyts till den aktuella sessionen.
     //Om kontot finns - skapa sessionsanvändare
     if (foundGithubUser) {
-      const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
-      req.session.csrfToken = csrfToken; // Token knyts till den aktuella sessionen.
+      console.log('hittade githuvanvändare', foundGithubUser);
 
       req.session.user = {
         userId: foundGithubUser._id.toString(),
@@ -146,13 +146,12 @@ app.get('/auth/github/login/callback', async (req, res) => {
         role: foundGithubUser.role
       };
       req.session.save(() => {
-        console.log('Successful login. User data:', req.session.user,);
-
         return res.redirect('/');
       });
       return;
       //Om inte - skapa nytt konto mha info från userInfo
     } else {
+
       const newUser = new User({
         firstName: userInfo.login,
         email: userInfo.email,
@@ -166,11 +165,14 @@ app.get('/auth/github/login/callback', async (req, res) => {
       console.log('User saved to blogDB:', newUser);
 
       // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
-      req.session.user = { username: newUser.email, firstName: newUser.firstName, csrfToken: req.session.csrfToken };
-
+      req.session.user = {
+        userId: newUser._id.toString(),
+        username: newUser.email,
+        firstName: newUser.firstName,
+        role: newUser.role,
+      };
+      return res.redirect('/');
     }
-
-    console.log(userInfo)
   } catch (error) {
     console.error('Error during GitHub callback:', error);
     res.status(500).send('Internal Server Error');
@@ -206,6 +208,7 @@ app.get('/', async (req, res) => {
         csrfToken: req.session.csrfToken, //CSRF-token skickas med till formuläret.
         userIsLoggedIn: true,
         userIsAdmin: userHasRoleAdmin,
+        loggedInUserId: req.session.user.userId,
         loggedInUsername: req.session.user.firstName,
         posts: posts,
         comments: comments
@@ -217,6 +220,7 @@ app.get('/', async (req, res) => {
         userIsLoggedIn: false,
         userIsAdmin: false,
         loggedInUsername: '',
+        loggedInUserId: false,
         posts: posts,
         comments: comments,
       });
@@ -231,7 +235,8 @@ app.get('/', async (req, res) => {
 
 // LOGIN-sida: GET-förfrågningar
 app.get('/login', (req, res) => {
-  res.render('login', { csrfToken: req.session.csrfToken });
+  const userIsCreated = req.query.userCreated;
+  res.render('login', { userIsCreated: userIsCreated, csrfToken: req.session.csrfToken });
 
 });
 
@@ -241,7 +246,8 @@ app.get('/register', (req, res) => {
 });
 
 // NYTT BLOGGINLÄGG: GET-förfrågningar
-app.get('/newpost', isAuthenticated(), async (req, res) => {
+app.get('/newpost', isAuthenticated, async (req, res) => {
+  console.log("här är jag");
   console.log("the csrfToken is" + req.session.csrfToken);
   res.render('new_post', { userIsLoggedIn: true, loggedInUsername: req.session.user.firstName, csrfToken: req.session.csrfToken });
 });
@@ -252,14 +258,14 @@ app.get('/newpost', isAuthenticated(), async (req, res) => {
 // LOGIN-sida: POST-förfrågningar
 app.post('/login', async (req, res) => {
   // Hämta användarnamn och lösenord från POST-förfrågan
-  const { username, password } = req.body;
+  let { username, password } = req.body;
+  username = DOMPurify.sanitize(username);
 
   try {
     // Sök efter användaren i databasen baserat på e-post
     const foundUser = await User.findOne({ email: username });
 
     if (foundUser) {
-
       // Om användaren finns, jämför det angivna lösenordet med det hashade lösenordet i databasen
       const result = await bcrypt.compare(password, foundUser.password);
 
@@ -275,19 +281,15 @@ app.post('/login', async (req, res) => {
         };
         req.session.save(() => {
           console.log('Successful login. User data:', req.session.user);
-          console.log(req.session.csrfToken);
-          console.log(csrfToken);
           res.redirect("/");
         });
       } else {
-        // Om lösenordet är fel, skicka tillbaka till inloggningssidan med en popup-ruta
-        console.log('Incorrect password');
-        res.send('<script>alert("Nämen! Lösenordet var fel - försök igen!"); window.location.href = "/login";</script>');
+        // Om lösenordet är fel - skriver dock ut 'username or password' för att inte avslöja ifall användaren finns
+        return res.status(403).send('Incorrect username or password, please try again');
       }
     } else {
-      // Om användarnamnet inte finns i databasen, skicka tillbaka till inloggningssidan med en popup-ruta
-      console.log('Incorrect username');
-      res.send('<script>alert("Attans, fel användarnamn. Det ska vara din mailadress, försök igen!"); window.location.href = "/login";</script>');
+      // Om användarnamnet inte finns i databasen - samma felmeddelande, för att inte avslöja ifall användaren finns
+      return res.status(403).send('Incorrect username or password, please try again');
     }
   } catch (error) {
     // Hantera eventuella fel 
@@ -300,26 +302,47 @@ app.post('/login', async (req, res) => {
 // REGISTRERA ANVÄNDARE - POST
 app.post('/register', async (req, res) => {
   try {
+    let { firstName, username, password } = req.body;
+    firstName = DOMPurify.sanitize(firstName);
+    username = DOMPurify.sanitize(username);
+
+    if (firstName === ""
+      || username === ""
+      || password === "") {
+      return res.status(403).send('Please enter a valid username, email and password');
+    }
+    //Ifall lösenordet är under 10 tecken
+    if (password.length < 10) {
+      return res.status(403).send('Lösenordet behöver innehålla minst 10 tecken! Tips - Försök att ha med specialtecken, siffror, versaler och undvik befintliga ord.');
+    }
+
+    const foundUser = await User.findOne({ email: username });
+    if (foundUser) {
+      // FRÅGA TILL KRISTIAN: Hur kan man göra detta utan att avslöja för användaren att epostadressen finns i databasen?
+      return res.status(403).send('A user with this email address already exists. Please try another email address or try to login');
+    }
+
     // Skapa en hash av det angivna lösenordet
-    const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Skapa en ny användare med angiven information och tilldela standardrollen 'reader'
     const newUser = new User({
-      firstName: req.body.firstName,
-      email: req.body.username,
+      firstName: firstName,
+      email: username,
       password: hashedPassword,
       role: 'reader', // Tilldelar standardrollen 'reader' för nya användare
     });
 
     // Spara den nya användaren i databasen
     await newUser.save();
+
     console.log('User saved to blogDB:', newUser);
 
     // Skapa en sessionsvariabel för den nya användaren och redirecta till inloggningssidan
     req.session.user = { username: newUser.email, firstName: newUser.firstName };
     const csrfToken = crypto.randomBytes(64).toString("hex"); //En lång random sträng.
     req.session.csrfToken = csrfToken; // Token knyts till den aktuella sessionen.
-    res.redirect('/login');
+    res.redirect('/login?userCreated=1');
   } catch (error) {
     // Hantera eventuella fel
     console.log('Error saving user to blogDB:', error);
@@ -329,17 +352,22 @@ app.post('/register', async (req, res) => {
 
 
 // NYTT BLOGGINLÄGG: POST-förfrågningar
-app.post('/newpost', isAuthenticated(), verifyCsrfToken, async (req, res) => {
-  // if (!req.session.user) {
-  //   return res.status(401).send("Not permitted.");
-  // }
+app.post('/newpost', isAuthenticated, verifyCsrfToken, async (req, res) => {
 
   try {
+    let { title, content } = req.body;
+    title = DOMPurify.sanitize(title);
+    content = DOMPurify.sanitize(content, { ALLOWED_TAGS: ['b', 'u', 'em', 'strong'] });
+
+    if (title === ""
+      || content === "") {
+      return res.status(403).send('Please write something!');
+    }
 
     // Skapa ett nytt blogginlägg med titel, content, datum och hämta användare från sessionsdata
     const newPost = new Post({
-      title: req.body.title,
-      content: DOMPurify.sanitize(req.body.content, { ALLOWED_TAGS: ['b', 'u', 'strong'] }),
+      title: title,
+      content: content,
       createdAt: Date.now(),
       createdBy: req.session.user.firstName,
       creatorId: req.session.user.userId,
@@ -350,8 +378,6 @@ app.post('/newpost', isAuthenticated(), verifyCsrfToken, async (req, res) => {
     await newPost.save();
     console.log('Post saved to blogDB:', newPost);
 
-    // Hämta samtliga blogginläggen, sortera efter senast skrivna (desc) -> redirecta till startsidan
-    const posts = await Post.find().sort({ createdAt: 'desc' });
     res.redirect('/');
   } catch (error) {
     // Hantera eventuella fel
@@ -363,13 +389,18 @@ app.post('/newpost', isAuthenticated(), verifyCsrfToken, async (req, res) => {
 
 
 // KOMMENTAR-route
-app.post('/comment/:postId', isAuthenticated(), verifyCsrfToken, async (req, res) => {
+app.post('/comment/:postId', isAuthenticated, verifyCsrfToken, async (req, res) => {
   try {
     const { postId } = req.params;
+    let { comment } = req.body;
+    comment = DOMPurify.sanitize(comment, { ALLOWED_TAGS: ['b', 'u', 'strong'] });
 
+    if (comment === "") {
+      return res.status(403).send('Please write a comment, an empty one is so boring');
+    }
     // Sparar kommentaren i databasen och returnera kommentaren med användarnamn
     const newComment = await Comment.create({
-      commentContent: DOMPurify.sanitize(req.body.comment),
+      commentContent: comment,
       createdAt: Date.now(),
       createdBy: req.session.user.firstName,
       creatorId: req.session.user.id,
@@ -389,12 +420,11 @@ app.post('/comment/:postId', isAuthenticated(), verifyCsrfToken, async (req, res
 
 
 
-app.delete('/newpost/:id', isAuthenticated(), verifyCsrfToken, async (req, res) => {
+app.delete('/newpost/:id', isAuthenticated, verifyCsrfToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.session.user.userId;
     const isAdmin = (req.session.user.role === 'admin');
-
     const findPostById = await Post.findById(id);
     const postOwner = findPostById.creatorId;
 
@@ -402,6 +432,9 @@ app.delete('/newpost/:id', isAuthenticated(), verifyCsrfToken, async (req, res) 
       return res.status(403).send("Access Denied"); // Permission denied
     }
     const findPostAndDelete = await Post.findByIdAndDelete(id);
+    const findCommentAndDelete = await Comment.deleteMany({ postId: id });
+    console.log(findPostAndDelete);
+    console.log(findCommentAndDelete);
 
     // Kontrollera om inlägget inte kunde hittas
     if (!findPostAndDelete) {
@@ -441,3 +474,5 @@ app.use(express.static("public"));
 app.listen(3000, () => {
   console.log('Server started on port 3000.');
 });
+
+

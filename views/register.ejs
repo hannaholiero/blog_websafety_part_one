@@ -13,15 +13,15 @@
               <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
               <div class="form-group">
                 <label for="text">Name</label>
-                <input type="text" class="form-control" name="firstName">
+                <input type="text" class="form-control" name="firstName" required="true">
               </div>
               <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" class="form-control" name="username">
+                <input type="email" class="form-control" name="username" required="true">
               </div>
               <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" class="form-control" name="password">
+                <input type="password" class="form-control" name="password" required="true">
               </div>
               <button type="submit" class="btn btn-dark">Register</button>
             </form>
@@ -29,17 +29,6 @@
           </div>
         </div>
       </div>
-
-      <!-- <div class="col-sm-4">
-      <div class="card social-block">
-        <div class="card-body">
-          <a class="btn btn-block" href="/auth/google" role="button">
-            <i class="fab fa-google"></i>
-            Sign Up with Google
-          </a>
-        </div>
-      </div>
-    </div> -->
-
     </div>
   </div>
+  <%- include('partials/footer') %>

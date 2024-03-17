@@ -9,23 +9,20 @@
         <% if (posts && posts.length> 0) { %>
           <% for (const post of posts) { %>
             <div class="postwrapper">
-              <div class="likes-wrapper">
-                <%- include('partials/likes') %>
-              </div>
               <div class="flex-grid">
                 <h2>
                   <%= post.title %>
                 </h2>
                 <br>
                 <p>
-                  <%= post.content %>
+                  <%- post.content %>
                 </p>
               </div>
 
               <div class="flex-under">
                 <div class="tabort">
-                  <% if (post.createdBy===loggedInUsername || userIsAdmin) { %>
-                    <button type="button" id="tabort-btn" class="tabort-btn" data-id="<%= post._id%>">Ta bort
+                  <% if (post.creatorId===loggedInUserId || userIsAdmin) { %>
+                    <button type="button" class="tabort-btn" data-id="<%= post._id%>">Ta bort
                       inlägg</button>
 
                     <% } %>
@@ -48,16 +45,16 @@
               </div>
 
               <% if (comments && comments.length> 0) { %>
+                <h3>Kommentarer:</h3>
                 <% for (const comment of comments) { %>
                   <% if (comment.postId===post._id.toString()) { %>
-                    <h3>Kommentarer:</h3>
                     <%- include('partials/comment_post', { comment: comment }) %>
                       <% } %>
                         <% } %>
                           <% } %>
 
                             <% if (userIsLoggedIn) { %>
-                              <%- include('partials/comment_form', { postId: post._id }) %>
+                              <%- include('partials/comment_form', { postId: post._id.toString() }) %>
 
                                 <% } %>
 
@@ -75,16 +72,24 @@
   </div>
   <script nonce="<%=supersecret %>">
 
-    document.getElementById("tabort-btn").addEventListener("click", confirmDelete);
+    document.addEventListener('DOMContentLoaded', function () {
+      const deleteButtons = document.querySelectorAll('.tabort-btn');
 
-    async function confirmDelete() {
-      const postId = this.getAttribute('data-id');
+      deleteButtons.forEach(function (button) {
+        button.addEventListener('click', async function (event) {
+          const postId = this.getAttribute('data-id');
+          await confirmDelete(postId);
+        });
+      });
+    });
+
+
+    async function confirmDelete(postId) {
       try {
         var confirmation = confirm("Är du säker på att du vill ta bort detta inlägg?");
         if (confirmation) {
           const response = await fetch(`/newpost/${postId}`,
             {
-
               method: 'DELETE',
               credentials: 'include', // Inkludera cookies)
               headers: {
@@ -103,15 +108,6 @@
         console.error(error)
       }
     }
-
-    const likeButton = document.getElementById('likeButton');
-    const likeCount = document.getElementById('likeCount');
-    let count = 0;
-
-    likeButton.addEventListener('click', () => {
-      count++;
-      likeCount.innerText = count;
-    });
 
 
 
