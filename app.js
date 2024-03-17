@@ -171,7 +171,9 @@ app.get('/auth/github/login/callback', async (req, res) => {
         firstName: newUser.firstName,
         role: newUser.role,
       };
-      return res.redirect('/');
+      req.session.save(() => {
+        return res.redirect('/');
+      });
     }
   } catch (error) {
     console.error('Error during GitHub callback:', error);
